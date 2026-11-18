@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en" class="no-js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Case study: Multi-bank Statement Analyzer – Harish Garlapati</title>
+<meta name="description" content="How I built a bank statement analyzer for a lending CRM that cut review time from 30+ minutes to under 2, and the silent bugs I found along the way.">
+<meta name="theme-color" content="#07090E">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Space+Grotesk:wght@500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script>document.documentElement.className = 'js';</script>
+</head>
+<body>
+
+<header class="nav">
+<div class="wrap nav-inner">
+<a class="brand" href="index.html" aria-label="Harish Garlapati, home">
+<span class="mark" aria-hidden="true">HG</span>
+<span class="brand-name">Harish Garlapati</span>
+</a>
+<nav class="nav-links" aria-label="Main">
+<a href="index.html#work">Work</a>
+<a class="hide-sm" href="index.html#apps">AI apps</a>
+<a href="index.html#contact">Contact</a>
+<a class="btn btn-light" href="resume.pdf">Resume</a>
+</nav>
+</div>
+</header>
+
+<main>
+<section class="dots">
+<div class="wrap cs-hero reveal">
+<a class="back" href="index.html#work">← All work</a>
+<p class="eyebrow" style="margin-top:24px">case study</p>
+<h1>Multi-bank Statement Analyzer: from 30 minutes to under 2.</h1>
+<p class="lead">How I built the statement analysis engine inside a lending company's loan CRM, and why most of the work was proving the numbers were right.</p>
+<div class="facts">
+<div class="fact"><p>Role</p><b>Built the Python engine + CRM integration</b></div>
+<div class="fact"><p>Timeline</p><b>Jun 2026 – present</b></div>
+<div class="fact"><p>Stack</p><b>Python, pdfplumber, OCR, Node.js, Angular, MySQL</b></div>
+<div class="fact"><p>Status</p><b style="color:var(--green-text)">Live in production</b></div>
+</div>
+</div>
+</section>
+
+<section class="section" style="padding-top:40px">
+<div class="wrap prose">
+
+<div class="reveal">
+<h2>The problem</h2>
+<p>Before approving a loan, the credit team needs to know how money actually moves through a borrower's account: monthly credits, debits, average balance, EMIs, bounced cheques. That means reading every line of 6 to 12 months of bank statements.</p>
+<p>Done by hand, one file took <strong>at least half an hour</strong>. And every bank lays out its PDFs differently: different columns, date formats, multi-line narrations, and some statements are scanned images rather than text.</p>
+</div>
+
+<div class="reveal">
+<h2>The constraint that shaped everything</h2>
+<p>In lending, a wrong number is worse than no number. A tool that is right 98% of the time but quietly invents a balance 2% of the time is dangerous, because nobody re-checks it.</p>
+<p>So I made one rule early: <strong>numbers are extracted with deterministic, rule-based parsing and verified against the statement itself</strong>. AI helps me build faster, but it never gets to guess a figure.</p>
+</div>
+
+<div class="reveal">
+<h2>The approach</h2>
+<p>I built a Python engine that runs alongside the CRM's existing Node.js backend, with a six-stage pipeline and bank-specific templates layered on top:</p>
+<div class="flow" aria-label="Pipeline">
+<span>Token extraction + OCR</span><i>→</i>
+<span>Row building</span><i>→</i>
+<span>Column detection</span><i>→</i>
+<span>Normalization</span><i>→</i>
+<span class="on">Validation</span><i>→</i>
+<span>Excel / CRM output</span>
+</div>
+<p>The validation stage is the heart of it: every row's balance must follow from the previous balance plus credits minus debits. If it doesn't, the statement is flagged instead of silently passed through.</p>
+</div>
+
+<div class="reveal">
+<h2>The bugs that mattered</h2>
+<p>When I audited the parsing pipeline, I found four problems. None of them threw an error, which is exactly what made them dangerous.</p>
+<div class="bugs">
+<div class="bug">
+<h3>1. Silent data corruption on detailed statements</h3>
+<p>One large bank's "detailed statement" layout was being read with a line-based extractor that scrambled rows without any warning.</p>
+<p class="fix">Fix: a new table-based extractor and a routing step that sends each layout to the right parser.</p>
+</div>
+<div class="bug">
+<h3>2. Double-counting across overlapping statements</h3>
+<p>When a borrower uploaded PDFs covering overlapping dates in different layouts, the same transactions were counted twice.</p>
+<p class="fix">Fix: rewrote de-duplication to compare normalized date, amount and balance instead of raw text.</p>
+</div>
+<div class="bug">
+<h3>3. Intermittent crashes on one bank's files</h3>
+<p>A native PDF process occasionally crashed on one bank's statements, failing uploads at random.</p>
+<p class="fix">Fix: automatic retry logic in the Node.js server.</p>
+</div>
+<div class="bug">
+<h3>4. Works on my machine</h3>
+<p>A hard-coded path to the Python engine broke the tool on any machine but the original developer's.</p>
+<p class="fix">Fix: removed machine-specific paths so it runs on any server.</p>
+</div>
+</div>
+</div>
+
+<div class="reveal">
+<h2>Proving it</h2>
+<p>To be sure, I independently reconciled <strong>7,561 unique transactions</strong> across five overlapping statements for one account, checking every balance by arithmetic rather than trusting any tool's output. That check also exposed defects in a previously used Excel output, which confirmed why verification has to be built in.</p>
+</div>
+
+<div class="reveal">
+<h2>Results</h2>
+<ul>
+<li><strong>250+ statements</strong> analyzed in production, from most Indian banks</li>
+<li>Review time cut from <strong>30+ minutes to under 2</strong></li>
+<li><strong>No numeric errors reported</strong> so far; the few issues seen were in reading account-holder names, not amounts</li>
+<li>I presented it to the team and manager and walked the sales team through using it</li>
+</ul>
+</div>
+
+<div class="reveal">
+<h2>What I learned</h2>
+<p>The hard part of document AI isn't reading the PDF. It's knowing when you've read it wrong. Building validation into the pipeline, instead of bolting it on later, is what made the numbers trustworthy enough for credit decisions.</p>
+<p style="margin-top:40px"><a class="btn btn-primary" href="index.html#work">← Back to all work</a></p>
+</div>
+
+</div>
+</section>
+</main>
+
+<footer class="dots" style="border-top:1px solid var(--line)">
+<div class="wrap">
+<div class="foot" style="margin-top:0;border-top:0;padding:32px 0">
+<span>© 2026 Harish Garlapati</span>
+<a href="mailto:hareeshchowdary357@gmail.com">hareeshchowdary357@gmail.com</a>
+</div>
+</div>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
